@@ -1,5 +1,15 @@
+node_modules/
 _/node_modules/
+cli/node_modules/
 _/dist/
+cli/dist/
+dist/
+.vite/
+cli/.vite/
+.vitest-cache/
+cli/.vitest-cache/
+*.log
+_/dev_server.log
 py/__pycache__/
 py/*.pyc
 py/venv/
