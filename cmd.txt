@@ -1,0 +1,14 @@
+cd sudoku-lit/_
+npm run dev
+
+installation
+cd sudoku-lit/_
+npm install
+
+build du projet web
+cd sudoku-lit/_
+rm -rf dist; npm run build
+
+
+cd src/quiz
+node --input-type=module -e "import('./vocabulario-db-verif.js').then(m => console.log()).catch(e => console.error('Erreur:', e))"

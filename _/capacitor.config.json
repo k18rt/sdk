@@ -1,0 +1,5 @@
+{
+  "appId": "org.k18rt.sudoku",
+  "appName": "Sudoku",
+  "webDir": "dist"
+}
