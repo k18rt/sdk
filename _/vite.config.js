@@ -2,10 +2,11 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 const projectRoot = resolve(__dirname, '..')
+const cliRoot = resolve(projectRoot, 'cli')
 
 export default defineConfig({
   base: '/sudoku/',
-  root: projectRoot,
+  root: cliRoot,
   publicDir: resolve(projectRoot, 'public'),  
   build: {
     target: 'es2020',
@@ -14,7 +15,7 @@ export default defineConfig({
     copyPublicDir: true,
     rollupOptions: {
       input: {
-        main: resolve(projectRoot, 'index.html')
+        main: resolve(cliRoot, 'index.html')
       },
       output: {
       }
