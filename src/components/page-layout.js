@@ -40,13 +40,6 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
   // Pas de Shadow DOM : les styles globaux (main.css, app.css) doivent s'appliquer
   createRenderRoot() { return this }
 
-  // ── Gestionnaire de redimensionnement ────────────────────────────────────
-  _onPanelResize(e) {
-    // Transfère l'événement aux enfants intéressés (sudoku-app en particulier)
-    const app = this.querySelector('sudoku-app')
-    if (app) app._handleResizePanelResize(e)
-  }
-
   // ── Rendu ─────────────────────────────────────────────────────────────────
 
   render() {
@@ -63,7 +56,7 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
         <main style="flex:1; padding:5px 5px 0 5px; gap:0; margin:0;">
 
           <!-- Panneau redimensionnable flottant à droite – remplace <Resizable> -->
-          <div style="float:right; margin:0 0 5px 15px;">
+          <div class="game-panel" style="float:right; margin:0 0 5px 15px;">
             <resizable-panel
               initial-width="470"
               initial-height="690"
@@ -72,7 +65,6 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
                 border-radius: 4px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
               "
-              @resize=${this._onPanelResize}
             >
               <!-- Remplace <App /> -->
               <sudoku-app></sudoku-app>

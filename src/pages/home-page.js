@@ -33,7 +33,7 @@ export class HomePage extends GlobalStoreMixin(LitElement) {
 
   _playIcon() {
     return html`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 20"
+      <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 20"
            fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"
            width="72" height="60">
         <path d="M 2 17 A 10 10 0 0 1 9 8.2 L 9.5 10 A 8 8 0 0 0 4 17 Z"/>

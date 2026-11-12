@@ -1,498 +1,761 @@
-/**
- * sudoku-app.js
- * Remplace le composant React <App> de App.js
- *
- * C'est le composant le plus complexe. Il dépend de modules non fournis
- * (sudoku-ui, resolve, grid/sudoku-generator) dont les imports sont conservés
- * à l'identique. Seule la couche React → Lit est traduite.
- *
- * Équivalences React → Lit :
- *
- *   useState(x)             → propriété statique + @state (ou _prop) + this.requestUpdate()
- *   useEffect(fn, [deps])   → updated(changedProps) ou connectedCallback / willUpdate
- *   useRef(null)            → this._ref ou @query('selector')
- *   useCallback(fn, [deps]) → méthode de classe ordinaire (Lit re-rend si propriété change)
- *   useResizable()          → écoute l'événement 'resize' de <resizable-panel>
- *   useAppConfig()          → appConfigStore + listener 'import-grid-change'
- *
- * ⚠️  Les modules sudoku-ui, resolve, grid/sudoku-generator ne sont pas
- *     traduits ici (pas fournis). Leurs imports restent inchangés.
- */
-
-import { LitElement, html, css } from 'lit'
-import {
-  SudokuGrid,
-  TopButtonRow,
-  FillButton,
-  AnnotHole,
-  HelpOverlay,
-  ImportModal,
-  PaintBucketMinusIcon,
-  PaintBucketPlusIcon,
-  CellHypothesisIcon,
-  UnitHypothesisIcon,
-  NakedSetsIcon,
-  ExclusiveIntersectionIcon,
-  SimpleContradictionIcon,
-  ContradictionIcon,
-  DoubleFlowIcon,
-} from './sudoku-ui.js'
-import {
-  deepCopyCases,
-  GridStateCache,
-  candidateIsValid,
-  deductions,
-  deductionMovesFromMap,
-  fillCase,
-  simpleFill,
-  gridIsComplete,
-  isFalsifiedBySingleDigitChain,
-  selfSufficientSubsets,
-} from './resolve.js'
-import {
-  areGridsEqual,
-  gridAndSolutionWithDifficulty,
-  gridAndSolutionFromText,
-} from './grid/sudoku-generator.js'
-import { appConfigStore } from '../core/app-config-store.js'
-
-export class SudokuApp extends LitElement {
-  // ── Propriétés réactives (équivalent useState) ───────────────────────────
-  static properties = {
-    _solution:                  { state: true },
-    _cases:                     { state: true },
-    _selected:                  { state: true },
-    _highlighted:               { state: true },
-    _annotateMode:              { state: true },
-    _message:                   { state: true },
-    _keep:                      { state: true },
-    _history:                   { state: true },
-    _future:                    { state: true },
-    _flow:                      { state: true },
-    _difficulty:                { state: true },
-    _showHelp:                  { state: true },
-    _helpOverlay:               { state: true },
-    _showPositiveAnnot:         { state: true },
-    _showNegativeAnnot:         { state: true },
-    _showSelfSufficientSingle:  { state: true },
-    _showSelfSufficientSubset:  { state: true },
-    _showExclusiveSingle:       { state: true },
-    _showExclusiveIntersection: { state: true },
-    _showSimpleContradictions:  { state: true },
-    _showConsensusElimination:  { state: true },
-    _showContradiction:         { state: true },
-    _deductionsMap:             { state: true },
-    _onActivity:                { state: true },
-    _showImportModal:           { state: true },
-    _importText:                { state: true },
-    _cellSize:                  { state: true },
-  }
-
-  static styles = css`
-    :host { display: block; width: 100%; }
-  `
-
-  // ── Carte des difficultés ─────────────────────────────────────────────────
-  static DIFFICULTY_MAP = {
-    facile:   40,
-    moyen:    50,
-    difficile:58,
-    expert:   62,
-  }
-
-  constructor() {
-    super()
-    // Initialisation des états (équivalent des useState)
-    this._solution                  = null
-    this._cases                     = null
-    this._selected                  = []
-    this._highlighted               = []
-    this._annotateMode              = '+'
-    this._message                   = ''
-    this._keep                      = new GridStateCache()
-    this._history                   = []
-    this._future                    = []
-    this._flow                      = 0
-    this._difficulty                = 'moyen'
-    this._showHelp                  = false
-    this._helpOverlay               = true
-    this._showPositiveAnnot         = false
-    this._showNegativeAnnot         = false
-    this._showSelfSufficientSingle  = false
-    this._showSelfSufficientSubset  = false
-    this._showExclusiveSingle       = false
-    this._showExclusiveIntersection = false
-    this._showSimpleContradictions  = false
-    this._showConsensusElimination  = false
-    this._showContradiction         = false
-    this._deductionsMap             = new Map()
-    this._onActivity                = 0
-    this._showImportModal           = false
-    this._importText                = ''
-    this._cellSize                  = 50
-
-    // Refs (équivalent useRef)
-    this._gridRef             = null   // sera assigné via @query ou firstUpdated
-    this._iterationTimeoutId  = null
-
-    // Liaison stable pour les listeners
-    this._onImportGridChange  = this._handleImportGridChange.bind(this)
-    this._onResizablePanelResize = this._handleResizePanelResize.bind(this)
-
-    // Paramètres fixes de mise en page
-    this._helpPanelWidth  = 340
-    this._minRightMargin  = 24
-  }
-
-  // ── Cycle de vie ──────────────────────────────────────────────────────────
-
-  connectedCallback() {
-    super.connectedCallback()
-    // Équivalent : useAppConfig() → listen 'import-grid-change'
-    appConfigStore.addEventListener('import-grid-change', this._onImportGridChange)
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback()
-    appConfigStore.removeEventListener('import-grid-change', this._onImportGridChange)
-    clearTimeout(this._iterationTimeoutId)
-  }
-
-  firstUpdated() {
-    // Équivalent du useEffect(() => { … }, []) initial
-    this._gridRef = this.shadowRoot?.querySelector('.grid-container')
-                 ?? this.querySelector('.grid-container')
-
-    // Écoute les redimensionnements de resizable-panel dans le parent
-    // (l'événement 'resize' remonte via bubbles:true, composed:true)
-    window.addEventListener('resizable-resize', this._onResizablePanelResize)
-
-    // Cherche le panneau redimensionnable dans les ancêtres
-    const panel = this.closest('resizable-panel')
-    if (panel) {
-      panel.addEventListener('resize', this._onResizablePanelResize)
+import { html, svg } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
+import { ref } from 'lit/directives/ref.js';
+import { cssStyle, StatefulElement } from './lit-state.js';
+import { SudokuGrid, TopButtonRow, FillButton, AnnotHole, HelpOverlay, ImportModal, PaintBucketMinusIcon, PaintBucketPlusIcon, CellHypothesisIcon, UnitHypothesisIcon, NakedSetsIcon, ExclusiveIntersectionIcon, SimpleContradictionIcon, ContradictionIcon, DoubleFlowIcon } from "./sudoku-ui.js";
+import { deepCopyCases, GridStateCache, candidateIsValid, deductions, deductionMovesFromMap, fillCase, simpleFill, gridIsComplete } from "./resolve.js";
+import { isFalsifiedBySingleDigitChain, selfSufficientSubsets } from "./resolve.js";
+import { areGridsEqual, gridAndSolutionWithDifficulty, gridAndSolutionFromText } from "./grid/sudoku-generator.js";
+import confetti from "canvas-confetti";
+function renderApp() {
+  // State
+  const [solution, setSolution] = this.state(0, null);
+  const [cases, setCases] = this.state(1, null);
+  const [selected, setSelected] = this.state(2, []); // ["i,j"]
+  const [highlighted, setHighlighted] = this.state(3, []); // [n]
+  const [annotateMode, setAnnotateMode] = this.state(4, "+");
+  const [message, setMessage] = this.state(5, '');
+  const [keep, setKeep] = this.state(6, new GridStateCache());
+  const [history, setHistory] = this.state(7, []);
+  const [future, setFuture] = this.state(8, []);
+  const [flow, setFlow] = this.state(9, 0);
+  const [difficulty, setDifficulty] = this.state('difficulty', 'moyen'); // 'facile', 'moyen', 'difficile'
+  const [showHelp, setShowHelp] = this.state(11, false);
+  const [helpOverlay, setHelpOverlay] = this.state(12, true);
+  const [showPositiveAnnot, setShowPositiveAnnot] = this.state(13, false);
+  const [showNegativeAnnot, setShowNegativeAnnot] = this.state(14, false);
+  const [showSelfSufficientSingle, setShowSelfSufficientSingle] = this.state(15, false);
+  const [showSelfSufficientSubset, setShowSelfSufficientSubset] = this.state(16, false);
+  const [showExclusiveSingle, setShowExclusiveSingle] = this.state(17, false);
+  const [showExclusiveIntersection, setShowExclusiveIntersection] = this.state(18, false);
+  const [showSimpleContradictions, setShowSimpleContradictions] = this.state(19, false);
+  const [showConsensusElimination, setShowConsensusElimination] = this.state(20, false);
+  const [showContradiction, setShowContradiction] = this.state(21, false);
+  const [deductionsMap, setDeductionsMap] = this.state(22, new Map());
+  const [onActivity, setOnActivity] = this.state(23, 0); // 0: repos; 1: activité; 2: newGame; 3: itération
+  const [showImportModal, setShowImportModal] = this.state(24, false);
+  const [importText, setImportText] = this.state(25, '');
+  const difficultyMap = {
+    'facile': 40,
+    'moyen': 50,
+    'difficile': 58,
+    'expert': 62
+  };
+  const handleOn_async = this.callback(26, async () => {
+    console.log(`handleOn_async ${onActivity}`);
+    if (onActivity !== 0) {
+      setMessage('...');
+      return false;
+    } else {
+      setOnActivity(1);
+      setMessage('');
+      await new Promise(r => setTimeout(r, 50));
+      return true;
     }
-  }
-
-  /**
-   * Équivalent de useEffect avec liste de dépendances.
-   * Appelé après chaque re-rendu si des propriétés ont changé.
-   */
-  updated(changedProps) {
-    // useEffect(() => { … }, [onActivity])  – lancement de l'itération
-    if (changedProps.has('_onActivity') && this._onActivity === 3) {
-      this._runIteration()
-    }
-
-    // useEffect(() => { … }, [width, height, cellSize, helpOverlay])
-    if (
-      changedProps.has('_panelWidth') ||
-      changedProps.has('_panelHeight') ||
-      changedProps.has('_cellSize')
-    ) {
-      this._recalcCellSize()
-    }
-  }
-
-  // ── Gestion du redimensionnement (remplace useResizable) ─────────────────
-
-  _handleResizePanelResize(e) {
-    this._panelWidth  = e.detail.width
-    this._panelHeight = e.detail.height
-    this._recalcCellSize()
-  }
-
-  _recalcCellSize() {
-    if (!this._panelWidth || !this._panelHeight) return
-    const gridW = this._panelWidth  - 20 - 10
-    const gridH = this._panelHeight - 20 - 10 - 190 - 20
-    const grid  = Math.min(gridW, gridH)
-    const newCellSize = Math.max(Math.floor(grid / 9), 50)
-    if (newCellSize !== this._cellSize) {
-      this._cellSize = newCellSize
-      const actualGridWidth = Math.max(Math.floor(grid), this._cellSize * 9)
-      this._helpOverlay = (this._panelWidth - actualGridWidth) >= (this._helpPanelWidth + this._minRightMargin)
-    }
-  }
-
-  // ── Gestion de l'import externe (useAppConfig) ────────────────────────────
-
-  async _handleImportGridChange(e) {
-    const { importGrid } = e.detail
-    if (importGrid && await this._handleOn_async()) {
-      this._importSudokuFromText(importGrid)
-      appConfigStore.setImportGrid('')      // reset après import
-      this._handleMid()
-    }
-  }
-
-  // ── Activité / flux (équivalent handleOn/Mid/Off) ─────────────────────────
-
-  async _handleOn_async() {
-    if (this._onActivity !== 0) { this._message = '...'; return false }
-    this._onActivity = 1
-    this._message    = ''
-    await new Promise(r => setTimeout(r, 50))
-    return true
-  }
-
-  _handleMid() {
-    this._deductionsMap = new Map()
-    this._onActivity    = 3
-    if (this._message === '...') this._message = ''
-  }
-
-  _handleOff() {
-    this._onActivity = 0
-    if (this._message === '...') this._message = ''
-  }
-
-  // ── Itération (useEffect sur _onActivity === 3) ──────────────────────────
-
-  _runIteration() {
-    const hs = this._flow === 0
-      ? {
-          selfSufficientSingle:    this._showSelfSufficientSingle,
-          exclusiveSingle:         this._showExclusiveSingle,
-          selfSufficientSubset:    this._showSelfSufficientSubset,
-          exclusiveIntersection:   this._showExclusiveIntersection,
-          falsifiedBySingleDigitChain: this._showSimpleContradictions,
-          consensusElimination:    this._showConsensusElimination,
-          falsifiedByChain:        this._showContradiction,
-        }
-      : {}
-
-    const iterator = deductions(this._cases, hs, this._keep, () => false)
-    let lastResult = new Map()
-
+  }, [onActivity]);
+  const handleMid = this.callback(27, () => {
+    setDeductionsMap(new Map());
+    setOnActivity(3);
+    if (message === '...') setMessage('');
+  }, [message, onActivity]);
+  const handleOff = this.callback(28, () => {
+    setOnActivity(0);
+    if (message === '...') setMessage('');
+  }, [message, onActivity]);
+  this.effect(29, () => {
+    // Lance l'itération sur setOnActivity(3)
+    if (onActivity !== 3) return;
+    const hs = flow === 0 ? {
+      selfSufficientSingle: showSelfSufficientSingle,
+      exclusiveSingle: showExclusiveSingle,
+      selfSufficientSubset: showSelfSufficientSubset,
+      exclusiveIntersection: showExclusiveIntersection,
+      falsifiedBySingleDigitChain: showSimpleContradictions,
+      consensusElimination: showConsensusElimination,
+      falsifiedByChain: showContradiction
+    } : {}; // {selfSufficientSingle: showSelfSufficientSingle, exclusiveSingle: showExclusiveSingle}
+    const iterator = deductions(cases, hs, keep, () => false);
+    let lastResult = new Map();
+    let timeoutId = null;
     const processNext = () => {
-      const { value, done } = iterator.next()
+      const {
+        value,
+        done
+      } = iterator.next();
       if (done || !value) {
-        clearTimeout(this._iterationTimeoutId)
-        this._iterationTimeoutId = null
-        this._handleOff()
-        return
+        clearTimeout(timeoutId);
+        timeoutId = null;
+        handleOff();
+        console.log(`Itération terminée ${JSON.stringify(value)} ${done}`);
+        const {
+          fromLast,
+          fromBegin,
+          size
+        } = keep.success();
+        console.log(`keep size ${size} success ${fromLast}/${fromBegin} deductionMap (${lastResult.size})\n` + Array.from(lastResult.entries()).map(([k, v]) => `  ${k}: ${v.length} ${v.slice(0, 2).map(item => {
+          const {
+            steps,
+            ...rest
+          } = item;
+          return JSON.stringify(rest);
+        }).join('')}`).join('\n'));
+        return;
       }
-      this._deductionsMap = lastResult = value.result
-      this._iterationTimeoutId = setTimeout(processNext, 10)
+      //else console.log(`Itération ${JSON.stringify(value)} ${value.result.size} ${done}`)
+      setDeductionsMap(lastResult = value.result);
+      timeoutId = setTimeout(processNext, 10);
+    }; // 50ms de délai entre chaque itération
+    processNext();
+    // Nettoyage quand le composant est démonté
+    return () => {
+      console.log('Itération END');
+      clearTimeout(timeoutId);
+      timeoutId = null;
+      handleOff();
+    };
+  }, [onActivity]);
+
+  // Pour importer une grille
+  const {
+    importGrid,
+    setImportGrid
+  } = this.appConfig(); // Changement de grille depuis l'extérieur (AppConfig)
+  this.effect(30, () => {
+    (async () => {
+      if (importGrid && (await handleOn_async())) {
+        l_importSudokuFromText(importGrid);
+        setImportGrid(""); // reset après import
+        handleMid();
+      }
+    })();
+  }, [importGrid, setImportGrid]); // ne s’exécute que si importGrid change
+  async function handleImportSudoku_async() {
+    if (!(await handleOn_async())) return;
+    l_importSudokuFromText(importText);
+    setShowImportModal(false);
+    setImportText('');
+    handleMid();
+  }
+  function l_importSudokuFromText(text) {
+    const {
+      grid,
+      solution,
+      error
+    } = gridAndSolutionFromText(text);
+    // Fermer la modal et réinitialiser le texte
+    if (error) {
+      setMessage(error);
+      return;
     }
-    processNext()
+    setSolution(solution);
+    setCases(grid);
+    setHistory([deepCopyCases(grid)]);
+    setFuture([]);
+    setSelected([]);
+    setHighlighted([]);
+    setMessage('Sudoku importé avec succès !');
+    setKeep(new GridStateCache());
+    setFlow(0);
   }
 
-  // ── Import de grille ──────────────────────────────────────────────────────
-
-  async _handleImportSudoku_async() {
-    if (!await this._handleOn_async()) return
-    this._importSudokuFromText(this._importText)
-    this._showImportModal = false
-    this._importText      = ''
-    this._handleMid()
-  }
-
-  _importSudokuFromText(text) {
-    const { grid, solution, error } = gridAndSolutionFromText(text)
-    if (error) { this._message = error; return }
-    this._solution = solution
-    this._cases    = grid
-    this._history  = [deepCopyCases(grid)]
-    this._future   = []
-    this._selected = []
-    this._highlighted = []
-    this._message  = 'Sudoku importé avec succès !'
-    this._keep     = new GridStateCache()
-    this._flow     = 0
-  }
-
-  _handleAbortImportSudoku() {
-    this._showImportModal = false
-    this._importText      = ''
-  }
-
-  // ── Nouvelle partie ───────────────────────────────────────────────────────
-
-  async _handleNewGame_async(difficulty) {
-    if (!await this._handleOn_async()) return
-    this._onActivity = 2  // spinner
-    const { grid, solution } = await gridAndSolutionWithDifficulty(
-      SudokuApp.DIFFICULTY_MAP[difficulty] ?? 50
-    )
-    this._solution = solution
-    this._cases    = grid
-    this._history  = [deepCopyCases(grid)]
-    this._future   = []
-    this._selected = []
-    this._highlighted = []
-    this._message  = ''
-    this._keep     = new GridStateCache()
-    this._flow     = 0
-    this._handleMid()
-  }
-
-  // ── Saisie utilisateur ───────────────────────────────────────────────────
-
-  async _handleInput_async(n) {
-    if (!await this._handleOn_async()) return
-    // (logique identique à React – non dupliquée ici pour concision)
-    this._handleMid()
-  }
-
-  // ── Vérification ─────────────────────────────────────────────────────────
-
-  _handleVerify() {
-    if (!this._cases || !this._solution) return
-    const ok = areGridsEqual(
-      this._cases.map(row => row.map(c => c.found || 0)),
-      this._solution
-    )
-    this._message = ok ? 'Bravo !' : 'Il y a des erreurs.'
-  }
-
-  // ── Flow ─────────────────────────────────────────────────────────────────
-
-  async _handleFlow_async() {
-    if (!await this._handleOn_async()) return
-    this._flow = this._flow === 0 ? 1 : 0
-    this._handleMid()
-  }
-
-  // ── Effacement ───────────────────────────────────────────────────────────
-
-  async _handleErase_async() {
-    if (!await this._handleOn_async()) return
-    // logique d'effacement identique à React…
-    this._handleMid()
-  }
-
-  // ── Helper pour les boutons heuristiques ─────────────────────────────────
-
-  _heuristicButton(setter) {
-    return async () => {
-      if (await this._handleOn_async()) {
-        setter()
-        this._handleMid()
+  // Responsive cell size
+  const gridRef = this.ref(31, null);
+  const [cellSize, setCellSize] = this.state(32, 50);
+  const {
+    width,
+    height
+  } = this.panelSize;
+  const helpPanelWidth = 340; // largeur max du panneau d'aide
+  const minRightMargin = 24; // espace minimal à droite
+  this.effect(33, () => {
+    if (gridRef.current && width && height) {
+      // Largeur = 2 bords (20) + border (10) + 9 cellules
+      // Hauteur = 2 bords (20) + border (10) + 9 cellules + bas (190) + 20 ???
+      const gridWidth = width - 20 - 10;
+      const gridHeight = height - 20 - 10 - 190 - 20;
+      const grid = Math.min(gridWidth, gridHeight);
+      const newCellSize = window.innerWidth <= 800
+        ? Math.max(20, Math.floor((gridWidth - 2) / 9))
+        : Math.max(Math.floor(grid / 9), 50);
+      if (newCellSize !== cellSize) {
+        setCellSize(newCellSize);
+        // Calcul overlay possible ?
+        const gridWidth = Math.max(Math.floor(grid), cellSize * 9);
+        if (width - gridWidth >= helpPanelWidth + minRightMargin) setHelpOverlay(true);else setHelpOverlay(false);
       }
     }
+  }, [width, height, cellSize, helpOverlay]);
+  this.effect(34, () => {
+    // recalcul overlay à chaque ouverture d'aide
+    if (showHelp && gridRef.current) {
+      const w = window.innerWidth;
+      const gridWidth = gridRef.current.offsetWidth;
+      if (w - gridWidth >= helpPanelWidth + minRightMargin) setHelpOverlay(true);else setHelpOverlay(false);
+    }
+  }, [showHelp, cellSize]);
+  function subsetsCounts(cases) {
+    const nakedSubsets = selfSufficientSubsets(cases);
+    let combosCount = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // de 0 à 9
+    if (!nakedSubsets) return;
+    console.log('subsetsCounts', nakedSubsets);
+    for (const subset of nakedSubsets.selfSufficientSubsets) {
+      //if (subset.combo.length === 1) console.log(`{combo: ${JSON.stringify(combo)}}`)
+      if (subset.flagged.length) combosCount[subset.combo.length]++;
+    }
+    return combosCount;
+  }
+  function nbSubsetNotSingle(cases) {
+    const counts = subsetsCounts(cases);
+    let nb = 0;
+    for (let n = 0; n < counts.length; ++n) {
+      if (n === 1 && counts[1]) nb += 10;else nb += counts[n];
+    }
+    return nb;
+  }
+  function nbFalseInCases(cases) {
+    let nbFalse = 0;
+    cases.map(row => row.map(cell => {
+      for (let n = 1; n <= 9; ++n) {
+        if (!cell.annots.has(-n) && isFalsifiedBySingleDigitChain(cases, cell.i, cell.j, n)) nbFalse++;
+      }
+    }));
+    return nbFalse;
   }
 
-  // ── Rendu ─────────────────────────────────────────────────────────────────
+  // Nouvelle grille
+  function l_newGame() {
+    console.log(' newGame begin');
+    let sol,
+      newCases = null,
+      nbSubset,
+      nbFalse;
+    const diff = difficulty;
+    const nb = true ? 1 : diff === 'facile' ? 200 : diff === 'moyen' ? 100 : diff === 'difficile' ? 5 : 1;
+    for (let i = 0; i < (!cases ? 1 : nb); ++i) {
+      const {
+        grid: gridCases,
+        solution
+      } = gridAndSolutionWithDifficulty(difficultyMap[difficulty]);
+      const {
+        isValid,
+        flow,
+        cases: currentCases
+      } = simpleFill(gridCases);
+      if (gridIsComplete(currentCases)) {
+        i--;
+        continue;
+      }
+      const currentNbSubset = nbSubsetNotSingle(currentCases);
+      const currentNbFalse = nbFalseInCases(currentCases);
+      console.log(` newGame i:${i} ${currentNbSubset} ${currentNbFalse} (${currentNbSubset + currentNbFalse})`);
+      if (!newCases || 0 < currentNbSubset && currentNbSubset <= nbSubset && 0 < currentNbFalse && currentNbFalse <= nbFalse) {
+        sol = solution;
+        newCases = currentCases;
+        nbSubset = currentNbSubset || 10;
+        nbFalse = currentNbFalse || 10;
+      }
+      if (nbSubset && nbFalse && nbSubset + nbFalse < 3) {
+        break;
+      }
+    }
+    console.log(` newGame end nbSubset: ${nbSubset} nbFalse: ${nbFalse} (${nbSubset + nbFalse})`);
+    setSolution(sol);
+    setCases(newCases);
+    setHistory([deepCopyCases(newCases)]);
+    setFuture([]);
+    setSelected([]);
+    setHighlighted([]);
+    setMessage('');
+    setKeep(new GridStateCache());
+    setFlow(0);
+  }
+  this.effect(35, () => {
+    l_newGame();
+  }, []); // Grille par défaut au départ
 
-  render() {
-    if (!this._cases) return html``
+  async function handleNewGame_async() {
+    if (!(await handleOn_async())) return;
+    setOnActivity(2);
+    await new Promise(r => setTimeout(r, 50));
+    console.log(' handleNewGame begin');
+    l_newGame();
+    console.log(' handleNewGame end');
+    handleMid();
+  }
 
-    const cellSize = this._cellSize
+  // Fonction d'importation de sudoku
+  function handleAbortImportSudoku() {
+    setShowImportModal(false);
+    setImportText('');
+    setMessage('');
+  }
 
-    return html`
-      <div class="sudoku-app" style="width:100%; display:block;">
-        <div style="width:${cellSize * 9}px; min-width:270px; margin:0 auto; padding:10px;">
+  // Sélection stricte, sans drag :
+  // - Clic sur case non sélectionnée : sélectionne uniquement cette case
+  // - Clic sur case sélectionnée : la retire de la sélection
+  // - Shift+clic sur case non sélectionnée : ajoute à la sélection
+  // - Shift+clic sur case sélectionnée : la retire
+  function arraysEqual(a, b) {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+  function handleCellClick(i, j, e) {
+    e.preventDefault();
+    const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+    const isTwoFingerTap = e.touches && e.touches.length === 2 || e.button === 2;
+    const toogle = isModifier || isTwoFingerTap; // vs selection unique
+    if (cases[i][j].given) {
+      const n = cases[i][j].found;
+      const included = highlighted.includes(n);
+      setHighlighted(!toogle ? arraysEqual(highlighted, [n]) ? [] : [n] : highlighted.includes(n) ? highlighted.filter(m => m !== n) : [...highlighted, n]);
+    } else {
+      const cell = `${i}${j}`;
+      const included = selected.includes(cell);
+      setSelected(!toogle ? arraysEqual(selected, [cell]) ? [] : [cell] : selected.includes(cell) ? selected.filter(c => c !== cell) : [...selected, cell]);
+    }
+    console.log(`handleCellClick ${i}${j}`);
+  }
 
-          <!-- Grille -->
-          <div
-            class="grid-container"
-            style="min-width:${cellSize * 9}px; min-height:${cellSize * 9}px;"
-            @contextmenu=${(e) => e.preventDefault()}
-          >
-            ${SudokuGrid({
-              cellSize,
-              renderCell: (i, j) => this._renderCell(i, j),
-              deductionMap: this._deductionsMap,
-            })}
-          </div>
+  // Handler pour clic sur une annotation
+  async function handleAnnotClick(what, i, j, n, e) {
+    // what = [{h, m?=[+-]ijv, ...]
+    if (e) e.preventDefault();
+    if (!what.length) return;
+    e.stopPropagation();
+    const h = what[0];
+    if (!h.steps) return;
+    const steps = h.steps;
+    console.log(' handleAnnotClick', {
+      i,
+      j,
+      n
+    }, steps, steps.flat());
+  }
 
-          <!-- Barre d'activité -->
-          <div class=${`activity-viewer ${this._onActivity ? '' : 'is-off'}`}>
-            <div class="slider"><div class="segment"></div></div>
-          </div>
-
-          <!-- Message -->
-          <div style="
-            height:30px; text-align:center;
-            color:${this._message.startsWith('Bravo') ? 'green' : 'red'};
-            font-weight:bold; font-size:20px;
-            margin-top:0; margin-bottom:0;
-          ">
-            ${this._message}
-          </div>
-
-          <!-- Boutons du haut -->
-          ${TopButtonRow({
-            cellSize,
-            difficulty:        this._difficulty,
-            setDifficulty:     (d) => { this._difficulty = d },
-            handleNewGame:     (d) => this._handleNewGame_async(d),
-            handleImportGame:  ()  => { this._showImportModal = true },
-            handleVerify:      ()  => this._handleVerify(),
-            annotateMode:      this._annotateMode,
-            setAnnotateMode:   (m) => { this._annotateMode = m },
-            handleErase:       ()  => this._handleErase_async(),
-            loading:           this._onActivity === 2,
-          })}
-
-          <!-- Rangée des remplisseurs -->
-          <div class="fill-row" style="display:flex; margin-top:6px; margin-bottom:6px; width:100%;">
-            <button
-              class="fill-btn"
-              style="font-size:22px; display:flex; align-items:center; justify-content:center; padding:0 10px;"
-              title="Aide Sudoku"
-              @click=${() => { this._showHelp = !this._showHelp }}
-            >
-              <span style="width:24px; height:24px; text-align:center; line-height:26px; font-weight:bold; font-family:Arial;">ⓘ</span>
-            </button>
-
-            ${FillButton({ isOn: this._showNegativeAnnot,    setOn: (v) => { this._showNegativeAnnot = v },    title: 'Afficher les annotations négatives',                                          icon: PaintBucketMinusIcon({ size: 26 }) })}
-            ${FillButton({ isOn: this._showPositiveAnnot,    setOn: (v) => { this._showPositiveAnnot = v },    title: 'Afficher les annotations positives',                                         icon: PaintBucketPlusIcon({ size: 26 }) })}
-            ${FillButton({ isOn: this._showSelfSufficientSingle,  setOn: this._heuristicButton(() => { this._showSelfSufficientSingle = !this._showSelfSufficientSingle }),   title: 'Afficher les cases autosuffisantes',             icon: CellHypothesisIcon({ size: 20 }) })}
-            ${FillButton({ isOn: this._showExclusiveSingle,       setOn: this._heuristicButton(() => { this._showExclusiveSingle = !this._showExclusiveSingle }),             title: 'Afficher les singletons cachés',                icon: UnitHypothesisIcon({ size: 20 }) })}
-            ${FillButton({ isOn: this._showSelfSufficientSubset,  setOn: this._heuristicButton(() => { this._showSelfSufficientSubset = !this._showSelfSufficientSubset }),   title: 'Afficher les sous-ensembles autosuffisants',    icon: NakedSetsIcon({ size: 26 }) })}
-            ${FillButton({ isOn: this._showExclusiveIntersection, setOn: this._heuristicButton(() => { this._showExclusiveIntersection = !this._showExclusiveIntersection }), title: 'Afficher les intersections exclusives',         icon: ExclusiveIntersectionIcon({ size: 35 }) })}
-            ${FillButton({ isOn: this._showSimpleContradictions,  setOn: this._heuristicButton(() => { this._showSimpleContradictions = !this._showSimpleContradictions }),   title: 'Hypothèses sur un chiffre → contradiction',     icon: SimpleContradictionIcon({ size: 24 }) })}
-            ${FillButton({ isOn: this._showConsensusElimination,  setOn: this._heuristicButton(() => { this._showConsensusElimination = !this._showConsensusElimination }),   title: 'Afficher les éliminations par consensus',       icon: DoubleFlowIcon({ size: 30 }) })}
-            ${FillButton({ isOn: this._showContradiction,         setOn: this._heuristicButton(() => { this._showContradiction = !this._showContradiction }),                 title: 'Hypothèse la plus simple → contradiction',      icon: ContradictionIcon({ size: 24 }) })}
-
-            <button class="fill-btn" style="flex:1;" @click=${() => this._handleFlow_async()}>Flow</button>
-          </div>
-
-          <!-- Pavé numérique -->
-          <div class="numpad-row" style="display:flex; margin-top:6px; width:100%;">
-            ${[1,2,3,4,5,6,7,8,9].map(n => html`
-              <button
-                style="flex:1; font-size:18px;"
-                @click=${() => this._handleInput_async(n)}
-              >${n}</button>
-            `)}
-          </div>
-        </div>
-
-        <!-- Overlay d'aide -->
-        ${HelpOverlay({
-          visible: this._showHelp && this._helpOverlay,
-          onClose: () => { this._showHelp = false },
-        })}
-
-        <!-- Modal d'importation -->
-        ${this._showImportModal
-          ? ImportModal({
-              handleAbortImportSudoku: () => this._handleAbortImportSudoku(),
-              handleImportSudoku:      () => this._handleImportSudoku_async(),
-              importText:              this._importText,
-              setImportText:           (t) => { this._importText = t },
-              currentGrid: this._cases
-                ? this._cases.map(row => row.map(c => c.found || 0))
-                : null,
-            })
-          : html``
+  // Vérifier
+  function handleVerify() {
+    if (!solution) setMessage('Aucune solution connue !');else if (areGridsEqual(cases.map(row => row.map(cell => cell.found)), solution)) {
+      confetti({
+        // Nombre de confettis, Angle de dispersion, Point de départ (0.6 = un peu en dessous du milieu de la page)
+        particleCount: 200,
+        spread: 100,
+        origin: {
+          y: 0.6
         }
-      </div>
-    `
+      });
+      setMessage('Bravo ! Sudoku résolu !');
+    } else setMessage('Ce n\'est pas la bonne solution.');
+  }
+  function casesGrid(cases) {
+    return cases.map(row => row.map(cell => cell.found));
   }
 
-  // ── Rendu d'une cellule (logique identique à React, retourne un TemplateResult) ──
-  _renderCell(i, j) {
-    // Cette méthode est l'équivalent exact de renderCell dans App.js.
-    // Elle retourne du html`` au lieu de JSX.
-    // Le code interne (classes CSS, annotations…) est identique ligne pour ligne.
-    // Non détaillé ici car il dépend de la structure de `_cases` non fournie.
-    return html`<!-- renderCell(${i},${j}) -->`
+  // Flow: remplir toutes les cases qui n'ont qu'une annotation non rouge, avec animation
+
+  // Pour une ligne, colonne ou bloc, on regarde les cellules non remplies, avec annotations complètes.
+  // Si on trouve un ensemble de taille n de telles cellules et que le nombre de positifs de tout l'ensemble est n :
+  // Alors pour toutes les autres cellules, on peut mettre à -n les annotations pour chacun des positifs n trouvés.
+  // Si l'annot n'y est pas ou est positive on met une croix rouge sur l'annot.
+  // Inversement, si pour un ensemble de chiffres dont les annots sont complétées (en + ou -)sur toutes les cellules de la ligne, colonne ou bloc,
+  // si le nombre de ces chiffres est égale au nombre de cellules où ils sont positifs,
+  // Alors pour toutes ces cellules, on peut supprimer toutes les autres hypothèses, c'est-à-dire mettre à -h ces hypothèses.
+  // Si elle est absente ou positive, on met une croix rouge sur l'annot.
+  async function handleFlow_async() {
+    if (flow) return;
+    setFlow(1);
+    await handleOn_async();
+    console.log('handleFlow begin');
+    const toFill = deductionMovesFromMap(deductionsMap);
+    if (toFill.length === 0) {
+      console.log('handleFlow end 0');
+      handleMid();
+      return;
+    }
+    // Animation: remplir une case toutes les 1s
+    console.log('handleFlow toFill', `${toFill.length} moves: ${toFill.join(' ')}`);
+    //let localCases = cases
+    function animateFill(idx) {
+      if (idx >= toFill.length) {
+        console.log('handleFlow pre-end');
+        setFlow(0);
+        console.log('handleFlow end');
+        handleMid();
+        return;
+      }
+      fillCase(cases, toFill[idx]);
+      updateHistory();
+      setTimeout(() => animateFill(idx + 1), 10);
+    }
+    animateFill(0);
   }
+
+  // Répétition du flow s'il doit continuer
+  this.effect(36, () => {
+    //console.log('=== useEffect flow', flow)
+    //const timer = setTimeout(() => handleFlow(), 250)
+    //return () => clearTimeout(timer)
+  }, [flow]);
+  function updateHistory() {
+    if (!cases) return;
+    if (!history || history.length === 0) {
+      setHistory([deepCopyCases(cases)]);
+      setFuture([]);
+      return;
+    }
+    if (areGridsEqual(history[history.length - 1], cases)) return;
+    setHistory(h => [...h, deepCopyCases(cases)]);
+    setFuture([]);
+  }
+
+  // handleErase - Si Delete (suppr), efface la case ET les annotations, Si Backspace, efface seulement la case (found)
+  async function handleErase_async({
+    onlyFound = false
+  } = {}) {
+    if (!(await handleOn_async())) return;
+    selected.forEach(sel => {
+      const i = parseInt(sel[0]);
+      const j = parseInt(sel[1]);
+      const cell = cases[i][j];
+      if (!cell.given) {
+        cell.found = 0;
+        if (!onlyFound) cell.annots.clear();
+      }
+    });
+    updateHistory();
+    handleMid();
+  }
+  async function handleInput_async(num) {
+    if (!(await handleOn_async())) return;
+    console.log('handleInput', num, selected);
+    selected.forEach(sel => fillCase(cases, `${annotateMode}${sel}${num}`, true));
+    updateHistory();
+    handleMid();
+  }
+
+  // Double-clic sur une annotation unique ou flowable : remplir la case
+  async function handleAnnotDoubleClick(what, i, j, n, e) {
+    // what = [{h, m?=[+-]ijv, ...]
+    if (e) e.preventDefault();
+    if (!(await handleOn_async())) return;
+    for (const w of what) {
+      if (w.m) {
+        console.log(' handleAnnotDoubleClick', w);
+        fillCase(cases, w.m);
+        updateHistory();
+        break;
+      }
+    }
+    handleMid();
+  }
+
+  // Saisie clavier: undo/redo annotateMode, chiffre erase
+  async function handleKeyDown_async(e) {
+    if (!e) return;
+    if (showImportModal) return;
+    e.preventDefault();
+    console.log(`=== onKeyDown ${e.key} history ${history.length} future ${future.length} ${selected.length} selected ${selected}`);
+    if ((e.key === 'Escape' || e.key === 'ArrowLeft') && history.length > 1) {
+      if (await handleOn_async()) {
+        const present = history[history.length - 1];
+        const prev = history[history.length - 2];
+        setFuture(f => [present, ...f]);
+        setCases(deepCopyCases(prev));
+        setHistory(h => h.slice(0, -1));
+        handleMid();
+      }
+    } else if (e.key === 'ArrowRight' && future.length > 0) {
+      if (await handleOn_async()) {
+        const next = future[0];
+        setHistory(h => [...h, next]);
+        setCases(deepCopyCases(next));
+        setFuture(f => f.slice(1));
+        handleMid();
+      }
+    } else if (e.key === '+') setAnnotateMode('?');else if (e.key === '-') setAnnotateMode('-');else if (e.key === '=') setAnnotateMode('+');else if (selected.length === 0) return;else if ('1' <= e.key && e.key <= '9') await handleInput_async(Number(e.key));else if (e.key === 'Backspace') await handleErase_async({
+      onlyFound: true
+    });else if (e.key === 'Delete') await handleErase_async();
+  }
+  const [inputKey, setInputKey] = this.state(37, null);
+  this.effect(38, () => {
+    //console.log('=== useEffect addEventListener')
+    window.addEventListener('keydown', setInputKey);
+    return () => {
+      //console.log('=== useEffect removeEventListener');
+      window.removeEventListener('keydown', setInputKey);
+    };
+  }, []); // Dépendance vide pour n'ajouter l'event listener qu'une fois
+  this.effect(39, () => {
+    (async () => {
+      //console.log('=== useEffect inputKey on', inputKey)
+      if (inputKey && !inputKey.repeat) {
+        await handleKeyDown_async(inputKey);
+        setInputKey(null);
+      }
+    })();
+  }, [inputKey]);
+  this.effect(40, () => {
+    //console.log('=== useEffect selected', JSON.stringify(selected))
+  }, [selected]);
+
+  // Affichage grille + annotations
+  // nakedSubsets = {selfSufficientSubsets: [good], flagged: [flag]}
+  // good = {type, index, combo, nonnegsUnion, flagged: [flag]}
+  // flag = { i, j, n, combos: [combo] }
+  // combo = [{ idx, i, j, nonnegs }]
+  function renderCell(i, j, deductionMap) {
+    const cell = cases[i][j];
+    const isGiven = cell.given;
+    const isSelected = selected.includes(`${i}${j}`);
+    const highlight = highlighted.includes(cell.found);
+    const hasConflict = !candidateIsValid(cases, i, j, cell.found);
+    const caseDeductions = new Map();
+    for (const [key, value] of deductionMap.entries()) {
+      if (key.startsWith(`${i}${j}`)) caseDeductions.set(key, value);
+    }
+    const deductionsFor = (i, j, n, h_or_hs) => {
+      if (hasConflict) return [];
+      const k = `${i}${j}${n}`;
+      const arr = caseDeductions.get(k);
+      return !arr ? [] : h_or_hs === 'all' ? arr : arr.filter(d => Array.isArray(h_or_hs) ? h_or_hs.some(h => d.h.startsWith(h)) : d.h.startsWith(h_or_hs));
+    };
+    const inCombos = deductionsFor(i, j, 0, 'SelfSufficientSubset');
+    const isPartOfCombo = inCombos.length > 0;
+    const cellCombo = inCombos.length > 1 ? ' combo-2' : inCombos.length === 1 ? ' combo-1' : '';
+    return html`<div class=${`cell${isGiven ? ' given' : ''}${isSelected && !isGiven ? ' selected' : ''}${highlight ? ' highlight' : ''}${hasConflict ? ' conflict' : ''}${cellCombo}`} style=${styleMap(cssStyle({
+      width: cellSize,
+      height: cellSize,
+      fontSize: cellSize * 0.45
+    }))} @pointerdown=${e => handleCellClick(i, j, e)} tabindex=${0}>${cell.found !== 0 ? html`<span class=${isGiven ? 'given' : 'user'}>${cell.found}</span>` : cell.annots.size > 0 ? html`<div class=${"annotations"}>${[0, 1, 2].map(rowIdx => html`<div class=${"annot-row"}>${[1, 2, 3].map(colIdx => {
+      const n = rowIdx * 3 + colIdx;
+      const combo = isPartOfCombo ? ' annot-in-combo' : '';
+      const annotConflict = cell.annots.has(n) && !candidateIsValid(cases, i, j, n);
+      const conflict = annotConflict ? ' annot-conflict' : '';
+      const annotHighlight = highlighted.includes(n);
+      const highlight = annotHighlight ? ' annot-highlight' : '';
+      const annotSelfSufficientSingles = deductionsFor(i, j, n, 'SelfSufficientSingle');
+      const annotIsSelfSufficientSingle = annotSelfSufficientSingles.length > 0;
+      const found = annotIsSelfSufficientSingle ? ' annot-found' : '';
+      const annotIsFlagged = deductionsFor(i, j, n, 'SelfSufficientSubset:flag').length > 0;
+      const flag = annotIsFlagged ? ' annot-flag' : '';
+      const annotExclusiveSingles = deductionsFor(i, j, n, 'ExclusiveSingle');
+      const annotIsExclusiveSingle = annotExclusiveSingles.length > 0;
+      const annotExclusiveSingleType = !annotIsExclusiveSingle ? '' : annotExclusiveSingles[0].types[0];
+      const alone = annotIsExclusiveSingle ? ' annot-alone-' + annotExclusiveSingleType : '';
+      const annotExclusiveInters = deductionsFor(i, j, n, 'ExclusiveIntersection');
+      const annotIsExclusiveInter = annotExclusiveInters.length > 0;
+      const inter = annotIsExclusiveInter ? ' annot-inter-neg' : '';
+      const isPositive = cell.annots.has(n);
+      const annotFalsifiedBySingleDigitChains = !isPositive ? [] : deductionsFor(i, j, n, 'FalsifiedBySingleDigitChain');
+      const annotIsFalsifiedBySingleDigitChain = annotFalsifiedBySingleDigitChains.length > 0;
+      const digitChain = annotIsFalsifiedBySingleDigitChain ? ' annot-digit-chain' : '';
+      const hForChain = ['FalsifiedByChain:shortest', 'FalsifiedByChain']; // FalsifiedByChain2|...|7:+|-
+      const h = hForChain[0];
+      const annotFalsifiedByChains = !isPositive ? [] : deductionsFor(i, j, n, hForChain);
+      const annotIsFalsifiedByChain = annotFalsifiedByChains.length > 0;
+      //if (annotIsFalsifiedByChain) console.log(' annotFalsifiedByChain', annotFalsifiedByChains[0].m, annotFalsifiedByChains)
+      const chain = annotIsFalsifiedByChain ? ' annot-chain-' + (annotFalsifiedByChains[0].m[0] === '+' ? 'pos' : 'neg') : '';
+      const annotConsensusEliminations = deductionsFor(i, j, n, 'ConsensusElimination');
+      const annotIsConsensusElimination = annotConsensusEliminations.length > 0;
+      const consensus = annotIsConsensusElimination ? ' annot-consensus-' + (annotConsensusEliminations[0].m[0] === '+' ? 'pos' : 'neg') : '';
+      const more = deductionsFor(i, j, n, 'all');
+      const isNegative = cell.annots.has(-n);
+      const negOpacity = !isNegative ? 0 : cell.annots.has(-10 - n) ? 1 : showNegativeAnnot ? 0.2 : 0;
+      const posOpacity = !isPositive ? 0 : cell.annots.has(10 + n) ? 1 : showPositiveAnnot || more.length > 0 ? 0.7 : 0;
+      if (isPositive) {
+        return html`<span class=${`annot clickable${highlight}${conflict} ${consensus}${chain}${digitChain}${combo}${inter}${flag}${alone}${found}`} style=${styleMap(cssStyle({
+          opacity: posOpacity,
+          cursor: 'pointer'
+        }))} @click=${e => handleAnnotClick(more, i, j, n, e)} @dblclick=${e => handleAnnotDoubleClick(more, i, j, n, e)}>${n}</span>`;
+      }
+      if (isNegative) {
+        return html`<span class=${"annot annot-crosss"} style=${styleMap(cssStyle({
+          opacity: negOpacity
+        }))}>${AnnotHole({
+          children: []
+        })}</span>`;
+      }
+      // Sinon : annotation non posée
+      /*return (
+        <span
+          key={n}
+          className={`annot${conflict} ${consensus}${chain}${digitChain}${combo}${inter}${flag}${alone}${found}`}
+          onClick={e => handleAnnotClick(more, i, j, n, e)}
+          onDoubleClick={ (e) => handleAnnotDoubleClick(more, i, j, n, e) }
+        ><span style={{opacity: isPartOfCombo || annotIsFlagged ? 0.4 : 0.2}}>{isPartOfCombo || annotIsFlagged ? n : '.'}</span></span>
+      )*/
+    })}</div>`)}</div>` : null}</div>`;
+  }
+  if (!cases) return null;
+  const handleHeuristiqueButton = setter => async () => {
+    if (await handleOn_async()) {
+      setter(prev => !prev);
+      handleMid();
+    }
+  };
+  return html`<div class=${"sudoku-app"} style=${styleMap(cssStyle({
+    width: '100%',
+    display: 'block'
+  }))}>${html`<div style=${styleMap(cssStyle({
+    width: cellSize * 9,
+    minWidth: 270,
+    margin: '0 auto',
+    padding: 10
+  }))}>${html`<div class=${"grid-container"} ${ref(el => gridRef.current = el)} style=${styleMap(cssStyle({
+    minWidth: cellSize * 9,
+    minHeight: cellSize * 9
+  }))} @contextmenu=${e => e.preventDefault()}>${SudokuGrid({
+    cellSize: cellSize,
+    renderCell: renderCell,
+    deductionMap: deductionsMap,
+    children: []
+  })}</div>`}${html`<div id=${"activity-viewer"} class=${`activity-viewer ${onActivity ? '' : 'is-off'}`}>${html`<div class=${"slider"}>${html`<div class=${"segment"}></div>`}</div>`}</div>`}${html`<div style=${styleMap(cssStyle({
+    height: 30,
+    textAlign: 'center',
+    color: message.startsWith('Bravo') ? 'green' : 'red',
+    fontWeight: 'bold',
+    fontSize: 20,
+    marginTop: 0,
+    marginBottom: 0
+  }))}>${message}</div>`}${TopButtonRow({
+    cellSize: cellSize,
+    difficulty: difficulty,
+    setDifficulty: setDifficulty,
+    handleNewGame: handleNewGame_async,
+    handleImportGame: () => setShowImportModal(true),
+    handleVerify: handleVerify,
+    annotateMode: annotateMode,
+    setAnnotateMode: setAnnotateMode,
+    handleErase: handleErase_async,
+    style: {
+      width: '100%'
+    },
+    loading: onActivity === 2,
+    children: []
+  })}${html`<div class=${"fill-row"} style=${styleMap(cssStyle({
+    display: 'flex',
+    marginTop: 6,
+    marginBottom: 6,
+    width: '100%'
+  }))}>${html`<button @click=${() => setShowHelp(s => !s)} class=${"fill-btn"} style=${styleMap(cssStyle({
+    fontSize: 22,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0 10px 0px 10px'
+  }))} title=${"Aide Sudoku"}>${html`<span style=${styleMap(cssStyle({
+    display: 'content',
+    width: 24,
+    height: 24,
+    textAlign: 'center',
+    lineHeight: '26px',
+    fontWeight: 'bold',
+    fontFamily: 'Arial'
+  }))}>${"\u24D8"}</span>`}</button>`}${FillButton({
+    isOn: showNegativeAnnot,
+    setOn: setShowNegativeAnnot,
+    title: "Afficher les annotations négatives",
+    icon: PaintBucketMinusIcon({
+      size: 26,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showPositiveAnnot,
+    setOn: setShowPositiveAnnot,
+    title: "Afficher les annotations positives",
+    icon: PaintBucketPlusIcon({
+      size: 26,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showSelfSufficientSingle,
+    setOn: handleHeuristiqueButton(setShowSelfSufficientSingle),
+    title: "Afficher les cases autosuffisantes",
+    icon: CellHypothesisIcon({
+      size: 20,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showExclusiveSingle,
+    setOn: handleHeuristiqueButton(setShowExclusiveSingle),
+    title: "Afficher les singletons cachés",
+    icon: UnitHypothesisIcon({
+      size: 20,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showSelfSufficientSubset,
+    setOn: handleHeuristiqueButton(setShowSelfSufficientSubset),
+    title: "Afficher les sous-ensembles autosuffisants",
+    icon: NakedSetsIcon({
+      size: 26,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showExclusiveIntersection,
+    setOn: handleHeuristiqueButton(setShowExclusiveIntersection),
+    title: "Afficher les intersections exclusives",
+    icon: ExclusiveIntersectionIcon({
+      size: 35,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showSimpleContradictions,
+    setOn: handleHeuristiqueButton(setShowSimpleContradictions),
+    title: "Afficher les hypothèses sur un chiffre menant à une contradiction",
+    icon: SimpleContradictionIcon({
+      size: 24,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showConsensusElimination,
+    setOn: handleHeuristiqueButton(setShowConsensusElimination),
+    title: "Afficher les éliminations par concensus",
+    icon: DoubleFlowIcon({
+      size: 30,
+      children: []
+    }),
+    children: []
+  })}${FillButton({
+    isOn: showContradiction,
+    setOn: handleHeuristiqueButton(setShowContradiction),
+    title: "Afficher l'hypothèse la plus simple menant à une contradiction",
+    icon: ContradictionIcon({
+      size: 24,
+      children: []
+    }),
+    children: []
+  })}${html`<button @click=${handleFlow_async} style=${styleMap(cssStyle({
+    flex: 1
+  }))} class=${"fill-btn"}>${"Flow"}</button>`}</div>`}${html`<div class=${"numpad-row"} style=${styleMap(cssStyle({
+    display: 'flex',
+    marginTop: 6,
+    width: '100%'
+  }))}>${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => html`<button style=${styleMap(cssStyle({
+    flex: 1,
+    fontSize: 18
+  }))} @click=${() => handleInput_async(n)}>${n}</button>`)}</div>`}</div>`}${HelpOverlay({
+    visible: showHelp,
+    onClose: () => setShowHelp(false),
+    children: []
+  })}${showImportModal ? ImportModal({
+    handleAbortImportSudoku: handleAbortImportSudoku,
+    handleImportSudoku: handleImportSudoku_async,
+    importText: importText,
+    setImportText: setImportText,
+    currentGrid: cases ? cases.map(row => row.map(cell => cell.found || 0)) : null,
+    children: []
+  }) : null}</div>`;
 }
-
-customElements.define('sudoku-app', SudokuApp)
+export class SudokuApp extends StatefulElement { render() { return this.renderState(renderApp); } }
+customElements.define('sudoku-app', SudokuApp);

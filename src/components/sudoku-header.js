@@ -55,6 +55,11 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
          1px  1px 0 var(--terracotta-500);
       line-height: 1.1;
     }
+    @media (max-width: 600px) {
+      .header { padding: 12px; }
+      .header h1 { font-size: 26px; }
+      .home-donation { position: static !important; transform: none !important; margin-top: 10px; }
+    }
     .header p { margin: 0; opacity: .95; font-weight: 500; }
 
     .home-button {
@@ -134,7 +139,7 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
           <h1 style="margin:0; display:flex; align-items:center; gap:8px; justify-content:center;">
             Let's play Sudoku
           </h1>
-          <div style="position:absolute; right:0; top:53%; transform:translateY(-45%);">
+          <div class="home-donation" style="position:absolute; right:0; top:53%; transform:translateY(-45%);">
             <button class="h-choice-button" @click=${() => this.globalStore.addPage('don')}>
               Faire un don
             </button>

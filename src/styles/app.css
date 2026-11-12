@@ -448,11 +448,20 @@ body {
 @keyframes spinner-rotate {
   100% { transform: rotate(360deg); }
 }
+/* The cells and separators share the same measured cellSize. */
+.sudoku-help { box-sizing: border-box; max-width: min(388px, 100vw) !important; overflow-y: auto; }
+.sudoku-help-close { align-self: flex-end; font-size: 24px; cursor: pointer; }
 @media (max-width: 800px) {
-  .sudoku-grid {
-    width: 98vw !important;
-    height: 98vw !important;
-    min-width: 0;
-    min-height: 0;
-  }
+  .game-panel { float: none !important; width: 100%; margin: 0 0 20px !important; }
+  .sudoku-app { min-height: 0; }
+  .sudoku-app > div:first-child { width: 100% !important; min-width: 0 !important; box-sizing: border-box; }
+  .sudoku-import > div { box-sizing: border-box; max-height: 95vh; overflow-y: auto; }
+  .fill-row { flex-wrap: wrap; gap: 3px; }
+  .cell { flex-shrink: 0; touch-action: manipulation; }
+  .sudoku-app .annotations { font-size: clamp(8px, 2.3vw, 13px); }
+  .sudoku-app .numpad-row button { min-height: 36px; }
+  .pg-header > div { flex-wrap: wrap; gap: 12px !important; }
+  .pg-header app-icon { display: none; }
+  .pg-cards { grid-template-columns: minmax(0, 1fr); }
+  .pg-card { padding: 1.5rem; }
 }

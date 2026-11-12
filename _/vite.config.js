@@ -22,7 +22,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'lit': resolve(projectRoot, '_/node_modules/lit/index.js'),
+      'lit': resolve(projectRoot, '_/node_modules/lit'),
+      'canvas-confetti': resolve(projectRoot, '_/node_modules/canvas-confetti/src/confetti.js'),
       '@stripe/stripe-js': resolve(projectRoot, '_/node_modules/@stripe/stripe-js/dist/index.js')
     }
   },
