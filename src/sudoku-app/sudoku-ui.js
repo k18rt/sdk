@@ -372,7 +372,7 @@ export function HelpOverlay({
     margin: 0
   }))}>${"simple : clic sur la case"}</li>`}${html`<li style=${styleMap(cssStyle({
     margin: 0
-  }))}>${"multiple : Maj \u21E7 + clic"}</li>`}${html`<li style=${styleMap(cssStyle({
+  }))}>${"multiple : maintenir le clic et glisser (trackpad : double-tap maintenu), ou glisser le doigt sur mobile ; Maj ajoute ou retire les cases traversées"}</li>`}${html`<li style=${styleMap(cssStyle({
     margin: '14px 0 0 0',
     fontWeight: 'bold'
   }))}>${"Navigation"}</li>`}${html`<li style=${styleMap(cssStyle({

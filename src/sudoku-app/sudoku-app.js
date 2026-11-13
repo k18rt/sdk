@@ -1,4 +1,5 @@
 import { html, svg } from 'lit';
+import { GridSelection } from './grid-selection.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { ref } from 'lit/directives/ref.js';
 import { cssStyle, StatefulElement } from './lit-state.js';
@@ -290,9 +291,21 @@ function renderApp() {
     setMessage('');
   }
 
-  // Sélection stricte, sans drag :
+  const gesture = this.selectionGesture ??= new GridSelection((key, toggle) => {
+    setSelected(previous => toggle && previous.includes(key)
+      ? previous.filter(cell => cell !== key)
+      : previous.includes(key) ? previous : [...previous, key]);
+  });
+  function handleCellPointerDown(i, j, event) {
+    if (!event.isPrimary || (gesture.active && gesture.active.id !== event.pointerId)) return;
+    handleCellClick(i, j, event);
+    if (cases[i][j].given) return;
+    gesture.start(event, event.currentTarget.closest('.grid-container'), `${i}${j}`);
+  }
+
+  // Clic simple et MAJ+clic conservent leur comportement de sélection :
   // - Clic sur case non sélectionnée : sélectionne uniquement cette case
-  // - Clic sur case sélectionnée : la retire de la sélection
+  // - Clic sans MAJ : sélectionne uniquement cette case, même déjà sélectionnée
   // - Shift+clic sur case non sélectionnée : ajoute à la sélection
   // - Shift+clic sur case sélectionnée : la retire
   function arraysEqual(a, b) {
@@ -304,7 +317,9 @@ function renderApp() {
     return true;
   }
   function handleCellClick(i, j, e) {
-    e.preventDefault();
+    // Preserve native mouse clicks, including double-clicks on annotations.
+    // Touch selection takes priority over scrolling inside the grid.
+    if (e.pointerType !== 'mouse') e.preventDefault();
     const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
     const isTwoFingerTap = e.touches && e.touches.length === 2 || e.button === 2;
     const toogle = isModifier || isTwoFingerTap; // vs selection unique
@@ -315,7 +330,7 @@ function renderApp() {
     } else {
       const cell = `${i}${j}`;
       const included = selected.includes(cell);
-      setSelected(!toogle ? arraysEqual(selected, [cell]) ? [] : [cell] : selected.includes(cell) ? selected.filter(c => c !== cell) : [...selected, cell]);
+      setSelected(!toogle ? [cell] : selected.includes(cell) ? selected.filter(c => c !== cell) : [...selected, cell]);
     }
     console.log(`handleCellClick ${i}${j}`);
   }
@@ -440,6 +455,7 @@ function renderApp() {
   async function handleAnnotDoubleClick(what, i, j, n, e) {
     // what = [{h, m?=[+-]ijv, ...]
     if (e) e.preventDefault();
+    if (gesture.suppressDoubleClick) return;
     if (!(await handleOn_async())) return;
     for (const w of what) {
       if (w.m) {
@@ -525,11 +541,11 @@ function renderApp() {
     const inCombos = deductionsFor(i, j, 0, 'SelfSufficientSubset');
     const isPartOfCombo = inCombos.length > 0;
     const cellCombo = inCombos.length > 1 ? ' combo-2' : inCombos.length === 1 ? ' combo-1' : '';
-    return html`<div class=${`cell${isGiven ? ' given' : ''}${isSelected && !isGiven ? ' selected' : ''}${highlight ? ' highlight' : ''}${hasConflict ? ' conflict' : ''}${cellCombo}`} style=${styleMap(cssStyle({
+    return html`<div data-cell=${`${i}${j}`} class=${`cell${isGiven ? ' given' : ''}${isSelected && !isGiven ? ' selected' : ''}${highlight ? ' highlight' : ''}${hasConflict ? ' conflict' : ''}${cellCombo}`} style=${styleMap(cssStyle({
       width: cellSize,
       height: cellSize,
       fontSize: cellSize * 0.45
-    }))} @pointerdown=${e => handleCellClick(i, j, e)} tabindex=${0}>${cell.found !== 0 ? html`<span class=${isGiven ? 'given' : 'user'}>${cell.found}</span>` : cell.annots.size > 0 ? html`<div class=${"annotations"}>${[0, 1, 2].map(rowIdx => html`<div class=${"annot-row"}>${[1, 2, 3].map(colIdx => {
+    }))} @pointerdown=${e => handleCellPointerDown(i, j, e)} tabindex=${0}>${cell.found !== 0 ? html`<span class=${isGiven ? 'given' : 'user'}>${cell.found}</span>` : cell.annots.size > 0 ? html`<div class=${"annotations"}>${[0, 1, 2].map(rowIdx => html`<div class=${"annot-row"}>${[1, 2, 3].map(colIdx => {
       const n = rowIdx * 3 + colIdx;
       const combo = isPartOfCombo ? ' annot-in-combo' : '';
       const annotConflict = cell.annots.has(n) && !candidateIsValid(cases, i, j, n);
@@ -607,7 +623,9 @@ function renderApp() {
   }))}>${html`<div class=${"grid-container"} ${ref(el => gridRef.current = el)} style=${styleMap(cssStyle({
     minWidth: cellSize * 9,
     minHeight: cellSize * 9
-  }))} @contextmenu=${e => e.preventDefault()}>${SudokuGrid({
+  }))} @mousedown=${e => e.preventDefault()}
+    @lostpointercapture=${e => gesture.end(e)}
+    @contextmenu=${e => e.preventDefault()}>${SudokuGrid({
     cellSize: cellSize,
     renderCell: renderCell,
     deductionMap: deductionsMap,
@@ -757,5 +775,11 @@ function renderApp() {
     children: []
   }) : null}</div>`;
 }
-export class SudokuApp extends StatefulElement { render() { return this.renderState(renderApp); } }
+export class SudokuApp extends StatefulElement {
+  render() { return this.renderState(renderApp); }
+  disconnectedCallback() {
+    this.selectionGesture?.cancel();
+    super.disconnectedCallback();
+  }
+}
 customElements.define('sudoku-app', SudokuApp);
