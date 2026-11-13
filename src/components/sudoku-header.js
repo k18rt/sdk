@@ -57,6 +57,7 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
     }
     @media (max-width: 600px) {
       .header { padding: 12px; }
+      .header.with-path { padding-left: 2rem; padding-right: 2rem; }
       .header h1 { font-size: 26px; }
       .home-donation { position: static !important; transform: none !important; margin-top: 10px; }
     }
@@ -87,10 +88,9 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
       background: rgba(255,255,255,0.1);
     }
 
-    .header.with-path { flex-wrap: wrap-reverse; align-items: center; row-gap: 8px; }
+    .header.with-path { flex-wrap: wrap-reverse; align-items: end; row-gap: 8px; }
     .breadcrumb { display: flex; align-items: center; flex: 0 0 auto; max-width: 100%; flex-wrap: wrap; padding-bottom: 1px; }
     .app-title { flex: 0 0 auto; white-space: nowrap; margin-left: auto !important; text-align: right; }
-    @media (max-width: 600px) { .separator { margin: 0 0.5rem !important; } }
     .app-title {
       margin: 0;
       font-size: 1.5rem;

@@ -86,7 +86,10 @@ export class LessonBasePage extends Base {
             border: 2px solid var(--terracotta-500); border-radius: var(--radius-lg);
           }
         }
-        .pr-content { width: 100%; box-sizing: border-box; padding: 0 5px 0 20px; overflow-wrap: anywhere; }
+        .pr-content { width: 100%; box-sizing: content-box; padding: 0 5px 0 20px; overflow-wrap: anywhere; }
+        @media (max-width: 1000px) {
+          .pr-content { box-sizing: border-box; }
+        }
         .pr-content p, .pr-content ul, .pr-content li { text-align: left; }
         .exemples ul { padding-top: 2px; padding-inline-start: 15px; padding-bottom: 10px; margin-bottom: 0; }
         .exemples ul ul { padding-inline-start: 15px; list-style-type: none; text-indent: -10px; }
@@ -99,7 +102,7 @@ export class LessonBasePage extends Base {
   // Équivalent de <ButtonIcon type height callback icon />
   // Génère directement un <span class="bi ..."> sans passer par le custom element
   // (plus simple ici car on est dans un contexte no-Shadow-DOM)
-  _bi(type, svgTemplate, height, callback) {
+  _bi(type, svgTemplate, height, callback, verticalAlign = 'middle') {
     const isActive   = type === 'active'
     const isSelected = type === 'selected'
     const isDisabled = type === 'disabled'
@@ -112,7 +115,7 @@ export class LessonBasePage extends Base {
     return html`
       <span
         class=${cls}
-        style="height:${height}px; display:inline-block; vertical-align:middle;"
+        style="height:${height}px; display:inline-block; vertical-align:${verticalAlign};"
         @click=${(isActive && callback) ? callback : undefined}
       >${svgTemplate}</span>
     `
@@ -152,7 +155,10 @@ export class LessonBasePage extends Base {
   // Équivalent de <ButtonIcon type="active" icon={<GridIcon />} height={25} callback={...} />
   _gridBtn(grid) {
     return this._bi('active', this._iconGrid(), 25,
-      () => this.appConfigStore.setImportGrid(grid))
+      () => {
+        this.appConfigStore.setImportGrid(grid)
+        this.dispatchEvent(new CustomEvent('show-game', { bubbles: true, composed: true }))
+      }, 'text-bottom')
   }
 
   // ── Link vers une autre page ───────────────────────────────────────────────

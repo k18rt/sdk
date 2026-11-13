@@ -94,11 +94,13 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
           <div style="clear:both;"></div>
         </main>
 
-        <!-- Pied de page -->
-        <footer style="padding:0; text-align:center; color:var(--muted);">
-          <p>© 2025 Let's play Sudoku — Progresser en s'amusant.
-             Dernière mise à jour : septembre 2025.</p>
-        </footer>
+        <!-- Pied de page réservé à l’accueil -->
+        ${this.globalStore.isHomePage ? html`
+          <footer style="padding:0; text-align:center; color:var(--muted);">
+            <p>© 2025 Let's play Sudoku — Progresser en s'amusant.
+               Dernière mise à jour : septembre 2025.</p>
+          </footer>
+        ` : null}
       </div>
     `
   }

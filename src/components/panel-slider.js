@@ -5,12 +5,17 @@ export class PanelSlider {
     this.position = 0;
     this.media = matchMedia('(max-width: 1000px)');
     this.change = () => { this.drag = null; this.position = this.position >= .5 ? 1 : 0; this.paint(); };
+    this.onShowGame = () => this.showGame();
     this.resize = new ResizeObserver(() => this.paint());
     host.addController(this);
   }
-  hostConnected() { this.media.addEventListener('change', this.change); }
+  hostConnected() {
+    this.media.addEventListener('change', this.change);
+    this.host.addEventListener('show-game', this.onShowGame);
+  }
   hostDisconnected() {
     this.media.removeEventListener('change', this.change);
+    this.host.removeEventListener('show-game', this.onShowGame);
     this.drag = null;
     this.resize.disconnect();
   }
@@ -33,6 +38,14 @@ export class PanelSlider {
     this.host.querySelector('.site-panel').inert = this.media.matches && this.position === 1;
     this.host.querySelector('.game-panel').inert = this.media.matches && this.position === 0;
     this.host.querySelector('.panel-slider-bar').setAttribute('aria-label', this.position < .5 ? 'Afficher le jeu' : 'Afficher le site');
+  }
+  showGame() {
+    if (!this.media.matches) return;
+    this.drag = null;
+    this.suppressClick = false;
+    this.position = 1;
+    this.paint();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   start(e) {
     if (!this.media.matches || e.button !== 0 || !e.isPrimary) return;
