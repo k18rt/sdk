@@ -51,7 +51,7 @@ export class ResizablePanel extends LitElement {
       border-radius: 4px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    @media (max-width: 800px) {
+    @media (max-width: 1000px) {
       :host { width: 100% !important; height: auto !important; overflow: visible; }
       .resize-handle { display: none !important; }
     }

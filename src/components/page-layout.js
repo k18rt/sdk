@@ -23,6 +23,7 @@ import { GlobalStoreMixin }          from '../core/global-store.js'
 import { BackInterceptorController } from './back-interceptor.js'
 import './sudoku-header.js'
 import './resizable-panel.js'
+import { PanelSlider } from './panel-slider.js'
 import '../sudoku-app/sudoku-app.js'
 
 // ── Pages ────────────────────────────────────────────────────────────────────
@@ -40,6 +41,8 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
   // Pas de Shadow DOM : les styles globaux (main.css, app.css) doivent s'appliquer
   createRenderRoot() { return this }
 
+  slider = new PanelSlider(this)
+
   // ── Rendu ─────────────────────────────────────────────────────────────────
 
   render() {
@@ -51,10 +54,20 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
 
         <!-- En-tête – remplace <Header /> -->
         <sudoku-header></sudoku-header>
+          <button class="panel-slider-bar" type="button" aria-label="Afficher le jeu"
+            @touchstart=${e => { if (e.cancelable) e.preventDefault() }}
+            @pointerdown=${e => this.slider.start(e)}
+            @pointermove=${e => this.slider.move(e)}
+            @pointerup=${e => this.slider.finish(e)}
+            @pointercancel=${e => this.slider.finish(e)}
+            @lostpointercapture=${e => this.slider.finish(e)}
+            @click=${() => this.slider.toggle()}
+            @keydown=${e => this.slider.key(e)}><span class="panel-slider-tube" aria-hidden="true"><span class="panel-slider-thumb"></span></span></button>
 
         <!-- Contenu principal -->
         <main style="flex:1; padding:5px 5px 0 5px; gap:0; margin:0;">
 
+          <div class="panel-viewport"><div class="panel-track">
           <!-- Panneau redimensionnable flottant à droite – remplace <Resizable> -->
           <div class="game-panel" style="float:right; margin:0 0 5px 15px;">
             <resizable-panel
@@ -73,7 +86,10 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
 
           <!-- Composant de la page courante (équivalent de <MainComponent />) -->
           <!-- Le tag est mis à jour réactivement quand globalStore change     -->
-          ${this._renderCurrentPage(pageTag)}
+          <div class="site-panel">${this._renderCurrentPage(pageTag)}</div>
+          </div>
+
+          </div>
 
           <div style="clear:both;"></div>
         </main>

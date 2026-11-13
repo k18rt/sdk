@@ -34,7 +34,7 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
       align-items: end;
       gap: 1rem;
       background: linear-gradient(135deg, var(--terracotta-500), var(--terracotta-300));
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
       margin: 0 5px;
       position: relative;
       overflow: hidden;

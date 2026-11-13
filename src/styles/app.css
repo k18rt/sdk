@@ -478,3 +478,44 @@ body {
   .pg-cards { grid-template-columns: minmax(0, 1fr); }
   .pg-card { padding: 1.5rem; }
 }
+
+/* Full-width panes controlled by a translucent scrollbar below the header. */
+.panel-viewport, .panel-track, .site-panel { display: contents; }
+.panel-slider-bar { display: none; }
+@media (max-width: 1000px) {
+  html, body { overscroll-behavior-x: none; }
+  .panel-viewport { display: block; position: relative; overflow: hidden; --slide: 0; }
+  .panel-track { display: flex; width: 100%; align-items: stretch; transform: translate3d(calc(var(--slide) * -100%), 0, 0); will-change: transform; transition: transform .35s cubic-bezier(.22,.61,.36,1); }
+  .panel-track > .site-panel, .panel-track > .game-panel {
+    display: block; flex: 0 0 100%; width: 100%; min-width: 0; box-sizing: border-box;
+    float: none !important; margin: 0 !important; padding: 0 0 12px;
+  }
+  .panel-track > .site-panel { order: 0; }
+  .panel-track > .game-panel { order: 1; }
+  .panel-slider-bar {
+    display: block; position: relative; flex: none; align-self: stretch;
+    height: 20px; margin: 0 5px; padding: 0; border: 0; border-radius: 0;
+    background: transparent; color: var(--terracotta-800); cursor: ew-resize;
+    touch-action: none; user-select: none;
+  }
+  .panel-slider-tube {
+    position: absolute; left: 0; right: 0; top: 50%; height: 7px;
+    transform: translateY(-50%); border-radius: 99px; pointer-events: none;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    transition: height .16s ease, background .16s ease;
+  }
+  .panel-slider-thumb {
+    position: absolute; left: 2px; top: 2px; bottom: 2px; width: calc(50% - 2px);
+    border-radius: 99px; background: color-mix(in srgb, currentColor 35%, transparent);
+    will-change: transform; transition: transform .35s cubic-bezier(.22,.61,.36,1);
+  }
+  .panel-slider-bar.pressed .panel-slider-tube, .panel-slider-bar:focus-visible .panel-slider-tube { height: 13px; }
+  .panel-slider-bar:focus-visible { outline: 2px solid var(--terracotta-700); outline-offset: -2px; }
+  .panel-viewport.dragging .panel-track, .panel-slider-bar.dragging .panel-slider-thumb { transition: none; }
+}
+@media (max-width: 1000px) and (hover: hover) {
+  .panel-slider-bar:hover .panel-slider-tube { height: 13px; background: color-mix(in srgb, currentColor 18%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-track, .panel-slider-thumb, .panel-slider-tube { transition: none; }
+}
