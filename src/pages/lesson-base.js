@@ -74,7 +74,19 @@ export class LessonBasePage extends Base {
           display: flex; gap: 2rem; align-items: center;
           margin-left: auto; padding-right: 1rem;
         }
-        .pr-content { width: 100%; padding: 0 5px 0 20px; }
+        .lesson-navigation { width: 100%; container-type: inline-size; }
+        @container (max-width: 560px) {
+          .pr-menu { height: auto; border: none; background: transparent; padding: 0; flex-direction: column; gap: 8px; }
+          .pr-menu-title { width: 100%; box-sizing: border-box; text-align: left; padding: 0 16px; }
+          .pr-menu-title:hover { transform: none; }
+          .pr-menu-icons {
+            width: 100%; box-sizing: border-box; margin: 0; padding: 14px 16px;
+            gap: 8px; justify-content: space-between;
+            background-color: var(--terracotta-050);
+            border: 2px solid var(--terracotta-500); border-radius: var(--radius-lg);
+          }
+        }
+        .pr-content { width: 100%; box-sizing: border-box; padding: 0 5px 0 20px; overflow-wrap: anywhere; }
         .pr-content p, .pr-content ul, .pr-content li { text-align: left; }
         .exemples ul { padding-top: 2px; padding-inline-start: 15px; padding-bottom: 10px; margin-bottom: 0; }
         .exemples ul ul { padding-inline-start: 15px; list-style-type: none; text-indent: -10px; }
@@ -194,6 +206,7 @@ export class LessonBasePage extends Base {
           </div>
         ` : html`
           <!-- Vue contenu d'une carte : barre de navigation + contenu -->
+          <div class="lesson-navigation">
           <div class="pr-menu">
             <div class="pr-menu-title" @click=${() => { this._state = 0 }}>
               ${this.menuLabel}
@@ -205,6 +218,7 @@ export class LessonBasePage extends Base {
                 () => { this._state = c.key }
               ))}
             </div>
+          </div>
           </div>
           <div class="pr-content">
             ${card ? this._renderCardContent(card) : html``}

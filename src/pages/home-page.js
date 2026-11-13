@@ -68,7 +68,7 @@ export class HomePage extends GlobalStoreMixin(LitElement) {
       <div class="pg-container">
         <!-- En-tête avec AppIcon -->
         <header class="pg-header" style="text-align:left; margin-bottom:2rem;">
-          <div style="display:flex; align-items:flex-start; gap:24px;">
+          <div class="home-intro" style="display:flex; align-items:flex-start; gap:24px;">
             <div style="margin-top:6px;">
               <!-- Équivalent de <AppIcon width={128} height={128} /> -->
               <app-icon width="128" height="128"></app-icon>
@@ -104,7 +104,7 @@ export class HomePage extends GlobalStoreMixin(LitElement) {
           <div class="pg-card hm-card">
             <span style="scale:1.35;">${this._playIcon()}</span>
             <h2>Aire de jeu</h2>
-            <p>Choisis une grille selon ton envie :<br/>facile, moyenne, difficile… ou impossible !</p>
+            <p>Choisis une grille selon ton envie :<br/>facile, moyenne, difficile… ou impossible !</p>
             <div class="choice-buttons">
               <span class="choice-button" @click=${() => this._handlePlayClick('facile')   }>Chill</span>
               <span class="choice-button" @click=${() => this._handlePlayClick('moyen')    }>Corsée</span>

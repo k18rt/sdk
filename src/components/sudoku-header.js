@@ -87,6 +87,10 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
       background: rgba(255,255,255,0.1);
     }
 
+    .header.with-path { flex-wrap: wrap-reverse; align-items: center; row-gap: 8px; }
+    .breadcrumb { display: flex; align-items: center; flex: 0 0 auto; max-width: 100%; flex-wrap: wrap; padding-bottom: 1px; }
+    .app-title { flex: 0 0 auto; white-space: nowrap; margin-left: auto !important; text-align: right; }
+    @media (max-width: 600px) { .separator { margin: 0 0.5rem !important; } }
     .app-title {
       margin: 0;
       font-size: 1.5rem;
@@ -150,7 +154,7 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
 
     // Navigation en fil d'Ariane
     return html`
-      <div style="display:flex; align-items:center; padding-bottom:1px;">
+      <nav class="breadcrumb" aria-label="Fil d’Ariane">
         <!-- Bouton maison -->
         <button
           class="home-button"
@@ -174,7 +178,7 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
             : html`<span class="page-title">${item}</span>`
           }
         `)}
-      </div>
+      </nav>
       <h2 class="app-title">Let's play Sudoku</h2>
     `
   }
@@ -194,7 +198,7 @@ export class SudokuHeader extends GlobalStoreMixin(LitElement) {
     const isHome = this.globalStore.isHomePage
     return html`
       <header
-        class="header"
+        class=${isHome ? 'header' : 'header with-path'}
         style=${isHome ? 'justify-content:center;' : 'justify-content:space-between;'}
       >
         ${this._headerContent()}
@@ -222,10 +226,14 @@ export class AppIcon extends LitElement {
     this.height = 32
   }
 
-  static styles = css`:host { display: inline-block; }`
+  static styles = css`
+    :host { display: inline-block; max-width: 100%; }
+    svg { display: block; width: 100%; height: auto; }
+  `
 
   render() {
     return html`
+      <style>:host { width: ${this.width}px; }</style>
       <svg
         width=${this.width}
         height=${this.height}
