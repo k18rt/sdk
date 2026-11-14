@@ -112,13 +112,11 @@ export class LessonBasePage extends Base {
       isSelected ? 'bi-selected' : '',
       isDisabled ? 'bi-disabled' : '',
     ].filter(Boolean).join(' ')
-    return html`
-      <span
+    return html`<span
         class=${cls}
         style="height:${height}px; display:inline-block; vertical-align:${verticalAlign};"
         @click=${(isActive && callback) ? callback : undefined}
-      >${svgTemplate}</span>
-    `
+      >${svgTemplate}</span>`
   }
 
   // ── Icônes SVG (identiques dans decouverte.js et singleton-cache.js) ──────

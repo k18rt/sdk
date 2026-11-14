@@ -370,9 +370,9 @@ export function HelpOverlay({
     fontWeight: 'bold'
   }))}>${"S\xE9lection"}</li>`}${html`<li style=${styleMap(cssStyle({
     margin: 0
-  }))}>${"simple : clic sur la case"}</li>`}${html`<li style=${styleMap(cssStyle({
+  }))}>${"simple : clic sur la case"}</li>`}${html`<li style=${styleMap(cssStyle({
     margin: 0
-  }))}>${"multiple : maintenir le clic et glisser (trackpad : double-tap maintenu), ou glisser le doigt sur mobile ; Maj ajoute ou retire les cases traversées"}</li>`}${html`<li style=${styleMap(cssStyle({
+  }))}>${"multiple : maintenir le clic et glisser (trackpad : double-tap maintenu), ou glisser le doigt sur mobile ; Maj ajoute ou retire les cases traversées"}</li>`}${html`<li style=${styleMap(cssStyle({
     margin: '14px 0 0 0',
     fontWeight: 'bold'
   }))}>${"Navigation"}</li>`}${html`<li style=${styleMap(cssStyle({
@@ -400,7 +400,7 @@ export function HelpOverlay({
     width: 40,
     height: 24,
     fontSize: 16
-  }))}>${"5"}</span>`}${html`<span>${"Annotation dans un cercle : seule hypoth\xE8se possible dans la case"}</span>`}</div>`}${html`<div style=${styleMap(cssStyle({
+  }))}>${"5"}</span>`}${html`<span>${"Annotation dans un cercle : seule hypoth\xE8se possible dans la case"}</span>`}</div>`}${html`<div style=${styleMap(cssStyle({
     display: 'flex',
     alignItems: 'flex-start',
     marginBottom: 6
@@ -409,7 +409,7 @@ export function HelpOverlay({
     width: 45,
     height: 24,
     fontSize: 16
-  }))}>${"5"}</span>`}${html`<span>${"Annotation dans un carr\xE9 : seule hypoth\xE8se possible dans une ligne, colonne ou bloc"}</span>`}</div>`}${html`<div style=${styleMap(cssStyle({
+  }))}>${"5"}</span>`}${html`<span>${"Annotation dans un carr\xE9 : seule hypoth\xE8se possible dans une ligne, colonne ou bloc"}</span>`}</div>`}${html`<div style=${styleMap(cssStyle({
     marginTop: 12,
     color: '#666',
     fontSize: 14,
@@ -525,7 +525,7 @@ export function ImportModal({
     color: '#666',
     fontSize: '14px',
     lineHeight: '1.4'
-  }))}>${" Copiez cette grille pour la r\xE9utiliser plus tard : "}</p>`}${html`<textarea .value=${gridText} ?readonly=${true} style=${styleMap(cssStyle({
+  }))}>${" Copiez cette grille pour la r\xE9utiliser plus tard : "}</p>`}${html`<textarea .value=${gridText} ?readonly=${true} style=${styleMap(cssStyle({
     width: '100%',
     height: '11rem',
     padding: '12px',
@@ -553,5 +553,5 @@ export function ImportModal({
     gap: '8px',
     transition: 'all 0.2s',
     boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-  }))} @mouseover=${e => !copied && (e.currentTarget.style.backgroundColor = '#e0e0e0')} @mouseout=${e => !copied && (e.currentTarget.style.backgroundColor = '#f0f0f0')}>${copied ? [html`<svg width=${"16"} height=${"16"} viewBox=${"0 0 24 24"} fill=${"none"} stroke=${"currentColor"} stroke-width=${"2"} stroke-linecap=${"round"} stroke-linejoin=${"round"}>${svg`<path d=${"M20 6L9 17l-5-5"}></path>`}</svg>`, " Copi\xE9 ! "] : [html`<svg width=${"16"} height=${"16"} viewBox=${"0 0 24 24"} fill=${"none"} stroke=${"currentColor"} stroke-width=${"2"} stroke-linecap=${"round"} stroke-linejoin=${"round"}>${svg`<rect x=${"9"} y=${"9"} width=${"13"} height=${"13"} rx=${"2"} ry=${"2"}></rect>`}${svg`<path d=${"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"}></path>`}</svg>`, " Copier dans le presse-papier "]}</button>`}</div>`}</div>`}</div>`;
+  }))} @mouseover=${e => !copied && (e.currentTarget.style.backgroundColor = '#e0e0e0')} @mouseout=${e => !copied && (e.currentTarget.style.backgroundColor = '#f0f0f0')}>${copied ? [html`<svg width=${"16"} height=${"16"} viewBox=${"0 0 24 24"} fill=${"none"} stroke=${"currentColor"} stroke-width=${"2"} stroke-linecap=${"round"} stroke-linejoin=${"round"}>${svg`<path d=${"M20 6L9 17l-5-5"}></path>`}</svg>`, " Copi\xE9 ! "] : [html`<svg width=${"16"} height=${"16"} viewBox=${"0 0 24 24"} fill=${"none"} stroke=${"currentColor"} stroke-width=${"2"} stroke-linecap=${"round"} stroke-linejoin=${"round"}>${svg`<rect x=${"9"} y=${"9"} width=${"13"} height=${"13"} rx=${"2"} ry=${"2"}></rect>`}${svg`<path d=${"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"}></path>`}</svg>`, " Copier dans le presse-papier "]}</button>`}</div>`}</div>`}</div>`;
 }

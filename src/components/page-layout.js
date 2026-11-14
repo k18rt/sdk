@@ -98,7 +98,7 @@ export class PageLayout extends GlobalStoreMixin(LitElement) {
         ${this.globalStore.isHomePage ? html`
           <footer style="padding:0; text-align:center; color:var(--muted);">
             <p>© 2025 Let's play Sudoku — Progresser en s'amusant.
-               Dernière mise à jour : septembre 2025.</p>
+               Dernière mise à jour : septembre 2025.</p>
           </footer>
         ` : null}
       </div>

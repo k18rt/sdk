@@ -154,7 +154,7 @@ function renderApp() {
     setFuture([]);
     setSelected([]);
     setHighlighted([]);
-    setMessage('Sudoku importé avec succès !');
+    setMessage('Sudoku importé avec succès !');
     setKeep(new GridStateCache());
     setFlow(0);
   }
@@ -353,7 +353,7 @@ function renderApp() {
 
   // Vérifier
   function handleVerify() {
-    if (!solution) setMessage('Aucune solution connue !');else if (areGridsEqual(cases.map(row => row.map(cell => cell.found)), solution)) {
+    if (!solution) setMessage('Aucune solution connue !');else if (areGridsEqual(cases.map(row => row.map(cell => cell.found)), solution)) {
       confetti({
         // Nombre de confettis, Angle de dispersion, Point de départ (0.6 = un peu en dessous du milieu de la page)
         particleCount: 200,
@@ -362,7 +362,7 @@ function renderApp() {
           y: 0.6
         }
       });
-      setMessage('Bravo ! Sudoku résolu !');
+      setMessage('Bravo ! Sudoku résolu !');
     } else setMessage('Ce n\'est pas la bonne solution.');
   }
   function casesGrid(cases) {

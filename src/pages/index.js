@@ -64,7 +64,7 @@ export class DonPage extends LitElement {
           <p>Soutenez le développement de Let's play Sudoku.</p>
         </div>
         <!-- Intégrez ici votre formulaire de don (ex. PayPal, Stripe…) -->
-        <p>Merci pour votre soutien !</p>
+        <p>Merci pour votre soutien !</p>
       </div>
     `
   }
@@ -85,7 +85,7 @@ export class PlanPage extends GlobalStoreMixin(LitElement) {
           <div class="pg-card">
             <h3>Niveau 1</h3>
             <h2>Découverte</h2>
-            <p>Les bases : lignes, colonnes et blocs.</p>
+            <p>Les bases : lignes, colonnes et blocs.</p>
             <button class="grid-button" @click=${() => this.globalStore.addPage('plan1')}>
               Commencer
             </button>

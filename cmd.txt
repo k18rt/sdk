@@ -1,5 +1,7 @@
 cd sudoku-lit/_
 npm run dev
+# pour voir aussi sur mobile
+npm run dev -- --host 0.0.0.0
 
 installation
 cd sudoku-lit/_

@@ -24,7 +24,7 @@ import { GlobalStoreMixin } from '../core/global-store.js'
 const sudokuPlan = [
   {
     key: 'phase1',
-    phaseTitle: 'Phase 1 : Prise en main & méthodes de base',
+    phaseTitle: 'Phase 1 : Prise en main & méthodes de base',
     duration: 'Semaines 1–3',
     resume: 'Prise en main & méthodes de base',
     weeks: [
@@ -32,18 +32,18 @@ const sudokuPlan = [
         key: '1', title: 'Découverte', page: 'plan1',
         contents: [
           { title: 'Objectifs', items: ['Découvrir le jeu et ses règles', 'Apprendre une première technique'] },
-          { title: 'Activités', items: ['Remplir sa première grille', 'Suivre un exemple', 'Pratiquer !'] },
+          { title: 'Activités', items: ['Remplir sa première grille', 'Suivre un exemple', 'Pratiquer !'] },
         ],
       },
       {
         key: '2', title: 'Singleton caché', page: 'plan2',
         contents: [
-          { title: 'Objectifs', items: ['Apprendre les annotations (candidats) proprement', 'Repérer les uniques par ligne/colonne/bloc', 'Stratégie : du plus certain au plus probable'] },
+          { title: 'Objectifs', items: ['Apprendre les annotations (candidats) proprement', 'Repérer les uniques par ligne/colonne/bloc', 'Stratégie : du plus certain au plus probable'] },
           { title: 'Activités', items: ['3 grilles faciles avec annotations', 'Corriger 1 grille en comparant avec solution'] },
         ],
       },
       {
-        key: '3', title: 'Semaine 3 : Révision Guidée',
+        key: '3', title: 'Semaine 3 : Révision Guidée',
         contents: [
           { title: 'Objectifs', items: ['Consolider les règles et la gestion des candidats', 'Résoudre 2–3 grilles faciles sans aide'] },
           { title: 'Activités', items: ['Auto-évaluation + correction d\'erreurs fréquentes'] },
@@ -53,27 +53,27 @@ const sudokuPlan = [
   },
   {
     key: 'phase2',
-    phaseTitle: 'Phase 2 : Développement',
+    phaseTitle: 'Phase 2 : Développement',
     duration: 'Semaines 4–7',
     resume: 'Premières heuristiques',
     weeks: [
-      { key: '4', title: 'Semaine 4 : Paires Nues & Cachées', contents: [{ title: 'Objectifs', items: ['Maîtriser paires nues / paires cachées', 'Nettoyage des candidats ciblé'] }, { title: 'Activités', items: ['Exercices dédiés + 2 grilles moyennes'] }] },
-      { key: '5', title: 'Semaine 5 : Triples & Pointing', contents: [{ title: 'Objectifs', items: ['Triples (nus/cachés), Pointing pairs/box-line'] }, { title: 'Activités', items: ['2–3 grilles moyennes, analyse post-résolution'] }] },
-      { key: '6', title: 'Semaine 6 : X-Wing & Basics rapides', contents: [{ title: 'Objectifs', items: ['Comprendre X-Wing (ligne/colonne)', 'Automatiser les basiques (full house, singles)'] }, { title: 'Activités', items: ['1 grille guidée + 2 grilles libres'] }] },
-      { key: '7', title: 'Semaine 7 : Autonomie Intermédiaire', contents: [{ title: 'Objectifs', items: ['Résoudre des grilles intermédiaires sans aide', 'Optimiser l\'ordre des techniques'] }, { title: 'Activités', items: ['3 grilles, mesure du temps, récap des erreurs'] }] },
+      { key: '4', title: 'Semaine 4 : Paires Nues & Cachées', contents: [{ title: 'Objectifs', items: ['Maîtriser paires nues / paires cachées', 'Nettoyage des candidats ciblé'] }, { title: 'Activités', items: ['Exercices dédiés + 2 grilles moyennes'] }] },
+      { key: '5', title: 'Semaine 5 : Triples & Pointing', contents: [{ title: 'Objectifs', items: ['Triples (nus/cachés), Pointing pairs/box-line'] }, { title: 'Activités', items: ['2–3 grilles moyennes, analyse post-résolution'] }] },
+      { key: '6', title: 'Semaine 6 : X-Wing & Basics rapides', contents: [{ title: 'Objectifs', items: ['Comprendre X-Wing (ligne/colonne)', 'Automatiser les basiques (full house, singles)'] }, { title: 'Activités', items: ['1 grille guidée + 2 grilles libres'] }] },
+      { key: '7', title: 'Semaine 7 : Autonomie Intermédiaire', contents: [{ title: 'Objectifs', items: ['Résoudre des grilles intermédiaires sans aide', 'Optimiser l\'ordre des techniques'] }, { title: 'Activités', items: ['3 grilles, mesure du temps, récap des erreurs'] }] },
     ],
   },
   {
     key: 'phase3',
-    phaseTitle: 'Phase 3 : Approfondissement',
+    phaseTitle: 'Phase 3 : Approfondissement',
     duration: 'Semaines 8–12',
     resume: 'Des techniques plus avancées',
     weeks: [
-      { key: '8',  title: 'Semaine 8 : Swordfish, XY‑Wing',        contents: [{ title: 'Objectifs', items: ['Introduire Swordfish & XY‑Wing', 'Identifier les schémas rapidement'] }, { title: 'Activités', items: ['Grilles ciblées (difficiles)'] }] },
-      { key: '9',  title: 'Semaine 9 : Stratégies combinées',       contents: [{ title: 'Objectifs', items: ['Chaîner techniques intermédiaires + avancées'] }, { title: 'Activités', items: ['2 grilles complexes + 1 en conditions réelles'] }] },
-      { key: '10', title: 'Semaine 10 : Vitesse & Hygiène d\'erreur',contents: [{ title: 'Objectifs', items: ['Améliorer le timing, réduire les retours arrière'] }, { title: 'Activités', items: ['Chronométrage + revue détaillée'] }] },
-      { key: '11', title: 'Semaine 11 : Difficile continu',         contents: [{ title: 'Objectifs', items: ['Autonomie sur grilles « difficiles »'] }, { title: 'Activités', items: ['Suite de grilles + tracking de performance'] }] },
-      { key: '12', title: 'Semaine 12 : Projet final',              contents: [{ title: 'Objectifs', items: ['Créer une grille OU défi chronométré public'] }, { title: 'Activités', items: ['Publication/partage + bilan personnel'] }] },
+      { key: '8',  title: 'Semaine 8 : Swordfish, XY‑Wing',        contents: [{ title: 'Objectifs', items: ['Introduire Swordfish & XY‑Wing', 'Identifier les schémas rapidement'] }, { title: 'Activités', items: ['Grilles ciblées (difficiles)'] }] },
+      { key: '9',  title: 'Semaine 9 : Stratégies combinées',       contents: [{ title: 'Objectifs', items: ['Chaîner techniques intermédiaires + avancées'] }, { title: 'Activités', items: ['2 grilles complexes + 1 en conditions réelles'] }] },
+      { key: '10', title: 'Semaine 10 : Vitesse & Hygiène d\'erreur',contents: [{ title: 'Objectifs', items: ['Améliorer le timing, réduire les retours arrière'] }, { title: 'Activités', items: ['Chronométrage + revue détaillée'] }] },
+      { key: '11', title: 'Semaine 11 : Difficile continu',         contents: [{ title: 'Objectifs', items: ['Autonomie sur grilles « difficiles »'] }, { title: 'Activités', items: ['Suite de grilles + tracking de performance'] }] },
+      { key: '12', title: 'Semaine 12 : Projet final',              contents: [{ title: 'Objectifs', items: ['Créer une grille OU défi chronométré public'] }, { title: 'Activités', items: ['Publication/partage + bilan personnel'] }] },
     ],
   },
 ]

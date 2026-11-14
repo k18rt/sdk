@@ -92,7 +92,7 @@ export class DonPage extends LitElement {
         <header class="pg-header">
           <h1>Faire un don</h1>
           <p style="text-align:left;">
-            Tu passes de bons moments ici ? Aide-nous à aller plus loin !
+            Tu passes de bons moments ici ? Aide-nous à aller plus loin !
             Un don, petit ou grand, nous permet de garder ce projet vivant.
           </p>
         </header>

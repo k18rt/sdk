@@ -75,10 +75,10 @@ export class HomePage extends GlobalStoreMixin(LitElement) {
             </div>
             <div>
               <h1 style="margin:0 0 0.5rem 0;">
-                Bienvenue dans l'univers<br/>du Sudoku !
+                Bienvenue dans l'univers<br/>du Sudoku !
               </h1>
               <p style="margin:0;">
-                Apprends pas à pas…<br/>ou lance-toi directement dans la bataille !
+                Apprends pas à pas…<br/>ou lance-toi directement dans la bataille !
               </p>
             </div>
           </div>
@@ -104,7 +104,7 @@ export class HomePage extends GlobalStoreMixin(LitElement) {
           <div class="pg-card hm-card">
             <span style="scale:1.35;">${this._playIcon()}</span>
             <h2>Aire de jeu</h2>
-            <p>Choisis une grille selon ton envie :<br/>facile, moyenne, difficile… ou impossible !</p>
+            <p>Choisis une grille selon ton envie :<br/>facile, moyenne, difficile… ou impossible !</p>
             <div class="choice-buttons">
               <span class="choice-button" @click=${() => this._handlePlayClick('facile')   }>Chill</span>
               <span class="choice-button" @click=${() => this._handlePlayClick('moyen')    }>Corsée</span>
